@@ -10,5 +10,5 @@
 # sudo scp -i mykey.pem -o StrictHostKeyChecking=no ./mykey.pem ubuntu@3.238.179.197:~/mykey.pem
 
 # Client
-sudo scp -r -i mykey.pem -o StrictHostKeyChecking=no ./sample_images2 ubuntu@3.237.9.150:~/sample_images2
-sudo scp -i mykey.pem -o StrictHostKeyChecking=no ./parallelJobs.sh ubuntu@3.237.9.150:~/parallelJobs.sh
+sudo scp -r -i mykey.pem -o StrictHostKeyChecking=no ./sample_images2 ubuntu@35.173.48.238:~/sample_images2
+sudo scp -i mykey.pem -o StrictHostKeyChecking=no ./parallelJobs.sh ubuntu@35.173.48.238:~/parallelJobs.sh

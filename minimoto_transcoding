@@ -54,9 +54,9 @@ def logUpload(logfile):
 
 if __name__ == '__main__':
     logfile = open("minimoto.log", "a+")
-    logfile.write("\nNEW PROCESS\n")
+    logfile.write("\nNEW PROCESS")
     while True:
-        logfile.write("New conversion\n")
+        logfile.write("\nNew conversion\n")
         message, receipt, queue = receiveMessage()
         logReceive(logfile)
         inputBucket, outputBucket = createBuckets()

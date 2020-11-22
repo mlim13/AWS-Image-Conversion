@@ -30,7 +30,7 @@ def scaleOut(queueLength, numFleet):
             break
         try:
             clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
-            clientInstances[8].monitor()
+            clientInstances[0].monitor()
             tags = clientInstances[0].create_tags(
                 Tags=[
                     {
@@ -89,7 +89,7 @@ def printStatusInfo(instances, queueLength):
             EndTime=datetime.utcnow(),
             Period=60,
             Statistics=[
-                'Maximum',
+                'Average',
             ],
             Unit='Percent'
         )
@@ -151,6 +151,7 @@ if __name__ == "__main__":
     
     print("Num fleet prior: " + str(numFleet))
 
+    newFleetSize = numFleet
     if scaleTo is not None:
         newFleetSize = scaleForce(numFleet, scaleTo, instances)
         print("Num fleet post: " + str(newFleetSize))
