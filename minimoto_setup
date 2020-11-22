@@ -3,6 +3,7 @@
 import subprocess
 import sys
 import boto3
+import os
 
 # Extracts commanline arguments
 def extractCommandlineArgs():
@@ -97,16 +98,17 @@ def setupInstance(ec2, clientInstance, program, isService):
                          stdout=subprocess.PIPE, 
                          universal_newlines=True)
     fileDest = hostDest + ":~/.aws/credentials"
-    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "~/.aws/credentials", fileDest], # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
+    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", ".aws/credentials", fileDest], # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
                             stdout=subprocess.PIPE, 
                             universal_newlines=True)
     fileDest = hostDest + ":~/.aws/config"
-    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "~/.aws/config", fileDest], # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
+    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", ".aws/config", fileDest], # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
                             stdout=subprocess.PIPE, 
                             universal_newlines=True)
 
     if isService: # if we want to create an AMI from this instance
         # Add tag to indicate that this is a service instance
+        clientInstance.monitor() # Enable detailed monitoring
         serviceTag = clientInstance.create_tags(
             Tags=[
                 {
@@ -142,13 +144,19 @@ def setupInstance(ec2, clientInstance, program, isService):
 
 # Create credentials file on setup instance
 def createCredentialsFile(accessKey, secretKey, token):
-    f = open("~/.aws/credentials", "w") # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
+    filename = ".aws/credentials"
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
+    f = open(filename, "w") # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
     f.write("[default]\naws_access_key_id=" + accessKey + "\naws_secret_access_key=" + secretKey + "\naws_session_token=" + token + "\n")
     f.close()
 
 # Create config file on setup instance
 def createConfigFile(region):
-    f = open("~/.aws/config", "w") # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
+    filename = ".aws/config"
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
+    f = open(filename, "w") # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
     f.write("[default]\nregion=" + region + "\n")
     f.close()
 

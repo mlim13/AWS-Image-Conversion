@@ -25,11 +25,12 @@ def getTranscodingImage():
 
 def scaleOut(queueLength, numFleet):
     ec2 = boto3.resource('ec2') 
-    while queueLength/numFleet > 2:
+    while queueLength/numFleet > 4:
         if numFleet >= 7:
             break
         try:
             clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
+            clientInstances[8].monitor()
             tags = clientInstances[0].create_tags(
                 Tags=[
                     {
@@ -49,7 +50,7 @@ def scaleOut(queueLength, numFleet):
 
 def scaleIn(queueLength, numFleet, instances):
     for instance in instances:
-        if numFleet == 1 or queueLength/numFleet >= 2:
+        if numFleet == 1 or queueLength/numFleet >= 4:
             break
         instance.terminate()
         numFleet -= 1
@@ -84,11 +85,11 @@ def printStatusInfo(instances, queueLength):
                 'Value': instance.id
                 },
             ],
-            StartTime=datetime.utcnow() - timedelta(seconds=600),
+            StartTime=datetime.utcnow() - timedelta(seconds=120),
             EndTime=datetime.utcnow(),
             Period=60,
             Statistics=[
-                'Average',
+                'Maximum',
             ],
             Unit='Percent'
         )
@@ -111,6 +112,7 @@ def scaleForce(numFleet, scaleTo, instances):
                 break
             try:
                 clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
+                clientInstances[0].monitor()
                 tags = clientInstances[0].create_tags(
                     Tags=[
                         {
@@ -157,9 +159,9 @@ if __name__ == "__main__":
         exit()
 
     backlogPerInstance = queueLength/numFleet
-    if backlogPerInstance > 2: # Scale out
+    if backlogPerInstance > 4: # Scale out
         newFleetSize = scaleOut(queueLength, numFleet)
-    elif backlogPerInstance < 2: # Scale in
+    elif backlogPerInstance < 4: # Scale in
         newFleetSize = scaleIn(queueLength, numFleet, instances)
 
     print("Num fleet post: " + str(newFleetSize))

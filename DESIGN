@@ -35,7 +35,7 @@ minimoto_watchdog
 #################
 The scaling algorithm for the watchdog is based on Amazon's SQS scaling recommendations. The central idea is keeping track of "backlog per instance" and "acceptable backlog per instance" for the system. That is, for every instance in the service pool, how many requests are acceptable to be queued.
 
-To produce a low wait-time for users, I chose an acceptable backlog per instance of 2. Thus, when queueLength/numInstances > 2, we scale out and when < 2, we scale in. As a concrete example, if we have 60 requests, and 5 service instances, queueLength/numInstances = 30 which is greater than 2. Thus, we scale out, creating new instances until we hit 15. This ratio of 2 can be adjusted to suit different sized average jobs (eg. if we know the typical number of images in a request).
+To produce a low wait-time for users, I chose an acceptable backlog per instance of 4. Thus, when queueLength/numInstances > 4, we scale out and when < 4, we scale in. As a concrete example, if we have 60 requests, and 5 service instances, queueLength/numInstances = 12 which is greater than 4. Thus, we scale out, creating new instances until we hit 15. This ratio of 4 can be adjusted to suit different sized average jobs (eg. if we know the typical number of images in a request).
 
 There is a hardcoded minimum of 1 service instance and maximum of 7. The reason for the maximum of 7 is outlined in Potential Shortcomings.
 
