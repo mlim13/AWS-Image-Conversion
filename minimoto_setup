@@ -115,7 +115,7 @@ def setupInstance(ec2, clientInstance, program, isService):
         subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "./img2video.sh", fileDest], 
                             stdout=subprocess.PIPE, 
                             universal_newlines=True) # scp desired program to the new instance
-        subprocess.run(["sudo", "ssh", "-i", keyName + ".pem", hostDest, "(crontab -l ; echo '* * * * * python3 minimoto_transcoding.py') | crontab -"], 
+        subprocess.run(["sudo", "ssh", "-i", keyName + ".pem", hostDest, "(crontab -l ; echo '* * * * * python3 minimoto_transcoding') | crontab -"], 
                          stdout=subprocess.PIPE, 
                          universal_newlines=True)
         try:
