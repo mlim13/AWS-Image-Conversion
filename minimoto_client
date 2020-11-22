@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+import sys
+import boto3
+import subprocess
+import os
+import random
+import string
+
+def extractArguments():
+    wait = False
+    if '--wait' in sys.argv:
+        sys.argv.remove('--wait')
+        wait = True
+
+    imageFolder = sys.argv[1]
+    inputBucket = sys.argv[2]
+    outputBucket = sys.argv[3]
+
+    return imageFolder, inputBucket, outputBucket, wait 
+
+def uploadPhotos(imageFolder, inputBucket):
+    # Create a path such that the images are saved to a unique folder name in the input bucket
+    # Append a randomised 5 character string to the folder to avoid duplication
+    randId = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
+    # dest = imageFolder + "-" + randId
+    for filename in os.listdir(imageFolder):
+        inputBucket.upload_file(imageFolder + "/" + filename, randId + "/" + filename)
+    
+    return randId # randId will be used to uniquely identify the request and will be the filename for the generated mp4
+
+def sendRequest(randId):
+    response = queue.send_message(MessageBody=randId)
+
+if __name__ == "__main__":
+    # Extract commanline arguments
+    imageFolder, inputBucketStr, outputBucketStr, wait = extractArguments()
+
+    # Get sqs queue which has been set up by minimoto_setup
+    sqs = boto3.resource('sqs')
+    queue = sqs.get_queue_by_name(QueueName="queueMinimoto")
+
+    # Create input and output bucket in the cloud
+    s3 = boto3.resource('s3')
+    inputBucket = s3.Bucket(inputBucketStr)
+    outputBucket = s3.Bucket(outputBucketStr)
+
+    # Upload the images in imageFolder into the inputBucket
+    randId = uploadPhotos(imageFolder, inputBucket)
+    sendRequest(randId)
+
+    print("You'll find the output in s3://" + outputBucketStr + "/" + randId + ".mp4")
+
+    if wait: # if wait == true, wait here for the video to be generated
+        s3Client = s3.meta.client
+        waiter = s3Client.get_waiter('object_exists')
+        waiter.wait(Bucket='outputBucket', Key=randId + ".mp4")

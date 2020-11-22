@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+import sys
+import subprocess
+import os
+import boto3
+from datetime import datetime
+
+def receiveMessage():
+    # Get sqs queue where requests are stored
+    sqs = boto3.resource('sqs')
+    queue = sqs.get_queue_by_name(QueueName="queueMinimoto")
+    # VisibilityTimeout hides the message from subsequent calls to receive
+    messageList = queue.receive_messages(MaxNumberOfMessages=1, VisibilityTimeout=120)
+    if len(messageList) != 1:
+        exit()
+    messageObj = messageList[0]
+    receipt = messageObj.receipt_handle
+    message = messageObj.body
+
+    return message, receipt
+
+def createBuckets():
+    # Create input and output bucket in the cloud
+    inputBucket = "input-bucket-z5112968"
+    outputBucket = "output-bucket-z5112968"
+    s3 = boto3.resource('s3')
+    inputBucket = s3.Bucket(inputBucket)
+    outputBucket = s3.Bucket(outputBucket)
+
+    return inputBucket, outputBucket
+
+def downloadImagesFromBucket(inputBucket):
+    for obj in inputBucket.objects.filter(Prefix = message):
+        if not os.path.exists(os.path.dirname(obj.key)):
+            os.makedirs(os.path.dirname(obj.key))
+        inputBucket.download_file(obj.key, obj.key) # save to same path
+    
+def convertImagesToVideo():
+    subprocess.run(["./img2video.sh", message, message + ".mp4"], 
+                        stdout=subprocess.PIPE, 
+                        universal_newlines=True)
+
+def logReceive(logfile):
+    now = str(datetime.now().time())
+    logfile.write(now + ": request {} received. ".format(message))
+
+def logConversion(logfile):
+    now = str(datetime.now().time())
+    logfile.write(now + ": Conversion finished. ")
+
+def logUpload(logfile):
+    now = str(datetime.now().time())
+    logfile.write(now + ": file uploaded. ")
+
+if __name__ == '__main__':
+    logfile = open("minimoto.log", "a+")
+    logfile.write("\nn NEW PROCESS \n")
+    while True:
+        message, receipt = receiveMessage()
+        logReceive(logfile)
+        inputBucket, outputBucket = createBuckets()
+        downloadImagesFromBucket(inputBucket) 
+        convertImagesToVideo()
+        logConversion(logfile)
+        outputBucket.upload_file(message + ".mp4", message + ".mp4")
+        logUpload(logfile)
+        # Only delete the message (ie. the request) after it has been completed
+        queue.delete_messages(Entries=[{'Id':'this_is-arbitrary', 'ReceiptHandle':receipt}])

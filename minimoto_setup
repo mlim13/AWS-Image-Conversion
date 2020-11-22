@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+import sys
+import boto3
+import subprocess
+
+# Extracts commanline arguments
+def extractCommandlineArgs():
+    if len(sys.argv) != 5:
+        print("Incorrect number of arguments\n")
+        exit()
+    keyfile = sys.argv[1]
+    accessKey = sys.argv[2]
+    secretKey = sys.argv[3]
+    token = sys.argv[4]
+    return keyfile, accessKey, secretKey, token
+
+# Creates security group
+def createSecurityGroup(ec2, sgName):
+    # Create ec2 object - instance not actually created in AWS yet
+    try:
+        security_group = ec2.create_security_group(Description='A security group for minimoto',GroupName=sgName)
+        security_group.authorize_ingress(
+            IpPermissions=[
+                {'IpProtocol': 'tcp',
+                'FromPort': 22,
+                'ToPort': 22,
+                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+            ]
+        )
+    except:
+        print("Security group exists")
+
+# Import public key into AWS
+# Spec says we can assume this is done for us, so no need for this function in actual submission
+def importKey(ec2, keyfile):
+    pubKey = subprocess.run(["sudo", "ssh-keygen", "-y", "-f", keyfile], 
+                         stdout=subprocess.PIPE, 
+                         universal_newlines=True)
+    try:
+        key_pair_info = ec2.import_key_pair(KeyName=keyfile[:-4], PublicKeyMaterial=pubKey.stdout[:-1])
+    except:
+        print("keyname already imported")
+
+# Start creation of an instance
+# Separate from wait instance because we want to start what we need to and then wait to save time
+def startInstance(ec2, image, instanceType, keyName, sgName, isService):
+
+    userData = '''#!/bin/bash
+    sudo apt-get update
+    sudo apt install -y python3-pip
+    pip3 install boto3
+    '''
+    if isService:
+        userData = '''#!/bin/bash
+        sudo apt-get update
+        sudo apt-get install -y imagemagick
+        sudo apt-get install -y ffmpeg
+        sudo apt install -y python3-pip
+        pip3 install boto3
+        '''
+
+    clientInstances = ec2.create_instances(ImageId=image, MinCount=1, MaxCount=1, InstanceType=instanceType, KeyName=keyName, SecurityGroups=[sgName], UserData=userData)
+    clientInstance = clientInstances[0]
+
+    return clientInstance
+
+# Wait for the instance to be fully ready (to ssh into etc) and then set it up as needed
+def setupInstance(ec2, clientInstance, program, isService):
+    # Wait for instance to be ok to ssh into
+    ec2Client = ec2.meta.client # ec2 is a boto3 resource. We need a boto3 client to get a waiter object
+    waiter = ec2Client.get_waiter('instance_status_ok') # get waiter object to wait until instance status is ok
+    waiter.wait(InstanceIds=[
+        clientInstance.id
+    ])
+
+    # Add tag in order to associate this instance with minimoto
+    applicationTag = clientInstance.create_tags(
+        Tags=[
+            {
+                'Key': 'application',
+                'Value': 'minimoto'
+            },
+        ]
+    )
+
+    clientInstance.reload() # reload the attributes of the instance so we can correctly extract its public ip address
+    hostDest = "ubuntu@" + clientInstance.public_ip_address
+    fileDest = hostDest + ":~/" + program
+    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "./" + program, fileDest], 
+                            stdout=subprocess.PIPE, 
+                            universal_newlines=True) # scp desired program to the new instance
+    subprocess.run(["sudo", "ssh", "-i", keyName + ".pem", hostDest, "mkdir", ".aws"], 
+                         stdout=subprocess.PIPE, 
+                         universal_newlines=True)
+    fileDest = hostDest + ":~/.aws/credentials"
+    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "./credentials", fileDest], 
+                            stdout=subprocess.PIPE, 
+                            universal_newlines=True)
+    fileDest = hostDest + ":~/.aws/config"
+    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "./config", fileDest], 
+                            stdout=subprocess.PIPE, 
+                            universal_newlines=True)
+
+    if isService: # if we want to create an AMI from this instance
+        # Add tag to indicate that this is a service instance
+        serviceTag = clientInstance.create_tags(
+            Tags=[
+                {
+                    'Key': 'service',
+                    'Value': 'transcoding'
+                },
+            ]
+        )
+        fileDest = hostDest + ":~/img2video.sh"
+        subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "./img2video.sh", fileDest], 
+                            stdout=subprocess.PIPE, 
+                            universal_newlines=True) # scp desired program to the new instance
+        subprocess.run(["sudo", "ssh", "-i", keyName + ".pem", hostDest, "(crontab -l ; echo '* * * * * python3 minimoto_transcoding.py') | crontab -"], 
+                         stdout=subprocess.PIPE, 
+                         universal_newlines=True)
+        try:
+            imageId = ec2Client.create_image(InstanceId=clientInstance.id, Name="minimoto_transcoding_z5112968_image")
+            image = ec2.Image(imageId['ImageId'])
+            imageTag = image.create_tags(
+                Tags=[
+                    {
+                        'Key': 'application',
+                        'Value': 'minimoto'
+                    },
+                ]
+            )
+            return image
+        except:
+            print("Image already exists")
+
+    print(program + " instance ready")
+    return None
+
+# Create credentials file on setup instance
+def createCredentialsFile(accessKey, secretKey, token):
+    f = open("credentials", "w")
+    f.write("[default]\naws_access_key_id=" + accessKey + "\naws_secret_access_key=" + secretKey + "\naws_session_token=" + token + "\n")
+    f.close()
+
+# Create config file on setup instance
+def createConfigFile(region):
+    f = open("config", "w")
+    f.write("[default]\nregion=" + region + "\n")
+    f.close()
+
+if __name__ == "__main__":
+    # Extract commandline arguments
+    keyfile, accessKey, secretKey, token = extractCommandlineArgs()
+
+    # Set up parameters
+    sgName = "sgMinimoto"
+    image = "ami-0f82752aa17ff8f5d"
+    instanceType = "t2.large"
+    keyName = keyfile[:-4] # drop the .pem to get the keyname
+    region = "us-east-1"
+    queue = "queueMinimoto"
+
+    createCredentialsFile(accessKey, secretKey, token)
+    createConfigFile(region)
+
+    # Set up SQS (queue)
+    sqs = boto3.resource('sqs',
+        aws_access_key_id = accessKey,
+        aws_secret_access_key = secretKey,
+        aws_session_token = token,
+        region_name = region)
+    try:
+        queue = sqs.create_queue(
+            QueueName = queue,
+            # Attributes={
+            #     'FifoQueue': "true" # If we want a fifo queue. Dont think I need this for now
+            # }
+        )
+    except:
+        print("Queue already created\n")
+
+    # Set up input and output bucket
+    s3 = boto3.resource('s3',
+        aws_access_key_id = accessKey,
+        aws_secret_access_key = secretKey,
+        aws_session_token = token,
+        region_name = region)
+    try:
+        inputBucket = s3.create_bucket(
+            Bucket='input-bucket-z5112968'
+        )
+        outputBucket = s3.create_bucket(
+            Bucket='output-bucket-z5112968'
+        )
+    except:
+        print("Buckets already created\n")
+
+    # Create ec2 object - just a programmatic object used to create instances etc
+    ec2 = boto3.resource('ec2', 
+        aws_access_key_id = accessKey,
+        aws_secret_access_key = secretKey,
+        aws_session_token = token,
+        region_name = region)
+
+    # Create security group
+    createSecurityGroup(ec2, sgName)
+    # Create ec2 instance to run the client
+    clientInstance = startInstance(ec2, image, instanceType, keyName, sgName, isService = False)
+    # Create ec2 instance to run the transcoding service
+    transcodingInstance = startInstance(ec2, image, instanceType, keyName, sgName, isService = True)
+    # Create ec2 instance to run the watchdog
+    watchdogInstance = startInstance(ec2, image, instanceType, keyName, sgName, isService = True)
+
+    setupInstance(ec2, clientInstance, "minimoto_client", isService = False)
+    image = setupInstance(ec2, transcodingInstance, "minimoto_transcoding", isService = True)
+    setupInstance(ec2, watchdogInstance, "minimoto_watchdog", isService = False)
+
+    print("SQS_REQUEST_QUEUE={}".format(queue.url))
+    print("S3_BUCKET_INPUT=s3://input-bucket-z5112968")
+    print("S3_BUCKET_INPUT=s3://output-bucket-z5112968")
+    print("CLIENT_USER=ubuntu")
+    print("CLIENT_ADDR={}".format(clientInstance.public_dns_name))
+    print("WATCHDOG_USER=ubuntu")
+    print("WATCHDOG_ADDR={}".format(watchdogInstance.public_dns_name))
+    print("SERVICE_USER=ubuntu")
+    print("SERVICE_AMI={}".format(image.id))

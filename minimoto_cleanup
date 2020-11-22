@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+import sys
+import subprocess
+import boto3
+import os
+
+def cleanInstances():
+    ec2 = boto3.resource('ec2') 
+    try:
+        instances = ec2.instances.filter(Filters=[{'Name': 'tag:application', 'Values': ['minimoto']}, {'Name': 'tag:service', 'Values': ['transcoding']}, {'Name': 'instance-state-name', 'Values': ['running', 'pending']}])
+        for instance in instances:
+            instance.terminate()
+    except:
+        pass
+
+def cleanImages():
+    ec2 = boto3.resource('ec2')
+    try:
+        images = ec2.images.filter(Filters=[{'Name': 'tag:application', 'Values': ['minimoto']}])
+        for image in images:
+            image.deregister()
+    except:
+        pass
+
+def cleanQueues():
+    sqs = boto3.resource('sqs')
+    try:
+        queue = sqs.get_queue_by_name(QueueName="queueMinimoto")
+        queue.delete()
+    except:
+        pass
+
+def cleanBuckets():
+    s3 = boto3.resource('s3')
+    try:
+        inputBucket = s3.Bucket("input-bucket-z5112968")    
+        inputBucket.objects.all().delete()
+        inputBucket.delete()
+    except:
+        pass
+    
+    try:
+        outputBucket = s3.Bucket("input-bucket-z5112968")
+        outputBucket.objects.all().delete()
+        outputBucket.delete()
+    except:
+        pass
+
+if __name__ == "__main__":
+    cleanInstances()
+    cleanImages()
+    cleanQueues()
+    cleanBuckets()
+    print("All clean.")

@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+import sys
+import boto3
+import subprocess
+import argparse
+from datetime import datetime, timedelta
+
+def getQueueLength():
+    sqs = boto3.resource('sqs')
+    queue = sqs.get_queue_by_name(QueueName="queueMinimoto")
+    queueLength = int(queue.attributes['ApproximateNumberOfMessages'])
+    return queueLength
+
+def getFleetSize():
+    ec2 = boto3.resource('ec2') 
+    instances = ec2.instances.filter(Filters=[{'Name': 'tag:application', 'Values': ['minimoto']}, {'Name': 'tag:service', 'Values': ['transcoding']}, {'Name': 'instance-state-name', 'Values': ['running', 'pending']}])
+    numFleet = len(list(instances))
+    return numFleet, instances
+
+def getTranscodingImage():
+    ec2 = boto3.resource('ec2') 
+    images = ec2.images.filter(Filters=[{'Name': 'name', 'Values': ['minimoto_transcoding_z5112968_image']}])
+    transcodingImage = list(images)[0]
+    return transcodingImage
+
+def scaleOut(queueLength, numFleet):
+    ec2 = boto3.resource('ec2') 
+    while queueLength/numFleet > 2:
+        if numFleet >= 7:
+            break
+        try:
+            clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
+            tags = clientInstances[0].create_tags(
+                Tags=[
+                    {
+                        'Key': 'service',
+                        'Value': 'transcoding'
+                    },
+                    {
+                        'Key': 'application',
+                        'Value': 'minimoto'
+                    },
+                ]
+            )
+            numFleet += 1
+        except:
+            break # if we cannot add any more instances
+    return numFleet
+
+def scaleIn(queueLength, numFleet, instances):
+    for instance in instances:
+        if numFleet == 1 or queueLength/numFleet >= 2:
+            break
+        instance.terminate()
+        numFleet -= 1
+    return numFleet
+
+def extractFlags():
+    status = False
+    scaleTo = None
+
+    parser = argparse.ArgumentParser(description='im a parser')
+    parser.add_argument('--scale_to', dest='num', action='store')
+    parser.add_argument('--status', action="store_true")
+    args = parser.parse_args()
+    scaleTo = args.num
+    if scaleTo is not None:
+        scaleTo = int(scaleTo)
+    status = args.status
+    return scaleTo, status
+
+def printStatusInfo(instances, queueLength):
+    totalCount = 0
+    totalAverage = 0
+    client = boto3.client('cloudwatch')
+    for instance in instances:
+        totalCount += 1
+        response = client.get_metric_statistics(
+            Namespace='AWS/EC2',
+            MetricName='CPUUtilization',
+            Dimensions=[
+                {
+                'Name': 'InstanceId',
+                'Value': instance.id
+                },
+            ],
+            StartTime=datetime.utcnow() - timedelta(seconds=600),
+            EndTime=datetime.utcnow(),
+            Period=60,
+            Statistics=[
+                'Average',
+            ],
+            Unit='Percent'
+        )
+        average = 0
+        for cpu in response['Datapoints']:
+            if 'Average' in cpu:
+                average = cpu['Average']
+        totalAverage += average
+
+        print("instance: {} {} {}".format(instance.id, instance.state['Name'], average))
+
+    print("average utilisation: {}".format(totalAverage/totalCount))
+    print("queue length: {}".format(queueLength))
+
+def scaleForce(numFleet, scaleTo, instances):
+    if numFleet < scaleTo:
+        ec2 = boto3.resource('ec2') 
+        while numFleet < scaleTo:
+            try:
+                clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
+                tags = clientInstances[0].create_tags(
+                    Tags=[
+                        {
+                            'Key': 'service',
+                            'Value': 'transcoding'
+                        },
+                        {
+                            'Key': 'application',
+                            'Value': 'minimoto'
+                        },
+                    ]
+                )
+                numFleet += 1
+            except:
+                break # if we cannot add any more instances
+        return numFleet
+    elif numFleet > scaleTo:
+        for instance in instances:
+            if numFleet == 1 or numFleet == scaleTo:
+                break
+            instance.terminate()
+            numFleet -= 1
+        return numFleet
+    else:
+        return numFleet
+
+if __name__ == "__main__":
+    scaleTo, status = extractFlags()
+
+    queueLength = getQueueLength()
+    numFleet, instances = getFleetSize()
+    transcodingImage = getTranscodingImage()
+
+    if status:
+        printStatusInfo(instances, queueLength)
+    
+    print("Num fleet prior: " + str(numFleet))
+
+    if scaleTo is not None:
+        newFleetSize = scaleForce(numFleet, scaleTo, instances)
+    else:
+        backlogPerInstance = queueLength/numFleet
+
+        if backlogPerInstance > 2: # Scale out
+            newFleetSize = scaleOut(queueLength, numFleet)
+        elif backlogPerInstance < 2: # Scale in
+            newFleetSize = scaleIn(queueLength, numFleet, instances)
+
+    print("Num fleet post: " + str(newFleetSize))
+    confirmedFleetSize, _ = getFleetSize()
+    print("Actual fleet size post: " + str(confirmedFleetSize) + ". These may differ due to AWS Educate limiting instances")

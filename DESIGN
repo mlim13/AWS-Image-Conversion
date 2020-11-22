@@ -1,0 +1,17 @@
+A (plain text) DESIGN document describing your application architecture, algorithms and code. Also make sure to include an explanation of how you tested the system, and a discussion of any shortcomings of your submission.
+
+minimoto_setup
+
+
+
+minimoto_cleanup
+
+minimoto_client
+
+minimoto_transcoding
+
+minimoto_watchdog
+
+Testing
+
+Potential shortcomings
