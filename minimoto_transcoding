@@ -17,7 +17,7 @@ def receiveMessage():
     receipt = messageObj.receipt_handle
     message = messageObj.body
 
-    return message, receipt
+    return message, receipt, queue
 
 def createBuckets():
     # Create input and output bucket in the cloud
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     logfile = open("minimoto.log", "a+")
     logfile.write("\nn NEW PROCESS \n")
     while True:
-        message, receipt = receiveMessage()
+        message, receipt, queue = receiveMessage()
         logReceive(logfile)
         inputBucket, outputBucket = createBuckets()
         downloadImagesFromBucket(inputBucket) 

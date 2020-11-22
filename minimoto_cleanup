@@ -7,7 +7,7 @@ import os
 def cleanInstances():
     ec2 = boto3.resource('ec2') 
     try:
-        instances = ec2.instances.filter(Filters=[{'Name': 'tag:application', 'Values': ['minimoto']}, {'Name': 'tag:service', 'Values': ['transcoding']}, {'Name': 'instance-state-name', 'Values': ['running', 'pending']}])
+        instances = ec2.instances.filter(Filters=[{'Name': 'tag:application', 'Values': ['minimoto']}, {'Name': 'instance-state-name', 'Values': ['running', 'pending']}])
         for instance in instances:
             instance.terminate()
     except:
@@ -40,7 +40,7 @@ def cleanBuckets():
         pass
     
     try:
-        outputBucket = s3.Bucket("input-bucket-z5112968")
+        outputBucket = s3.Bucket("output-bucket-z5112968")
         outputBucket.objects.all().delete()
         outputBucket.delete()
     except:
