@@ -90,15 +90,18 @@ def setupInstance(ec2, clientInstance, program, isService):
     subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "./" + program, fileDest], 
                             stdout=subprocess.PIPE, 
                             universal_newlines=True) # scp desired program to the new instance
+    subprocess.run(["sudo", "ssh", "-i", keyName + ".pem", hostDest, "sudo", "chmod", "u+x", "./" + program], 
+                         stdout=subprocess.PIPE, 
+                         universal_newlines=True)
     subprocess.run(["sudo", "ssh", "-i", keyName + ".pem", hostDest, "mkdir", ".aws"], 
                          stdout=subprocess.PIPE, 
                          universal_newlines=True)
     fileDest = hostDest + ":~/.aws/credentials"
-    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "./credentials", fileDest], 
+    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "~/.aws/credentials", fileDest], # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
                             stdout=subprocess.PIPE, 
                             universal_newlines=True)
     fileDest = hostDest + ":~/.aws/config"
-    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "./config", fileDest], 
+    subprocess.run(["sudo", "scp", "-i", keyName + ".pem", "-o", "StrictHostKeyChecking=no", "~/.aws/config", fileDest], # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
                             stdout=subprocess.PIPE, 
                             universal_newlines=True)
 
@@ -139,13 +142,13 @@ def setupInstance(ec2, clientInstance, program, isService):
 
 # Create credentials file on setup instance
 def createCredentialsFile(accessKey, secretKey, token):
-    f = open("credentials", "w")
+    f = open("~/.aws/credentials", "w") # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
     f.write("[default]\naws_access_key_id=" + accessKey + "\naws_secret_access_key=" + secretKey + "\naws_session_token=" + token + "\n")
     f.close()
 
 # Create config file on setup instance
 def createConfigFile(region):
-    f = open("config", "w")
+    f = open("~/.aws/config", "w") # for testing on ubuntu. on wsl this may cause problems as ~/ confuses itself
     f.write("[default]\nregion=" + region + "\n")
     f.close()
 

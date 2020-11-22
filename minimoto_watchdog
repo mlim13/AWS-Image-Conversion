@@ -151,13 +151,16 @@ if __name__ == "__main__":
 
     if scaleTo is not None:
         newFleetSize = scaleForce(numFleet, scaleTo, instances)
-    else:
-        backlogPerInstance = queueLength/numFleet
+        print("Num fleet post: " + str(newFleetSize))
+        confirmedFleetSize, _ = getFleetSize()
+        print("Actual fleet size post: " + str(confirmedFleetSize) + ". These may differ due to AWS Educate limiting instances")
+        exit()
 
-        if backlogPerInstance > 2: # Scale out
-            newFleetSize = scaleOut(queueLength, numFleet)
-        elif backlogPerInstance < 2: # Scale in
-            newFleetSize = scaleIn(queueLength, numFleet, instances)
+    backlogPerInstance = queueLength/numFleet
+    if backlogPerInstance > 2: # Scale out
+        newFleetSize = scaleOut(queueLength, numFleet)
+    elif backlogPerInstance < 2: # Scale in
+        newFleetSize = scaleIn(queueLength, numFleet, instances)
 
     print("Num fleet post: " + str(newFleetSize))
     confirmedFleetSize, _ = getFleetSize()
