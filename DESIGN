@@ -1,17 +1,52 @@
-A (plain text) DESIGN document describing your application architecture, algorithms and code. Also make sure to include an explanation of how you tested the system, and a discussion of any shortcomings of your submission.
+Overall architecture
+####################
+To begin, minimoto_setup is called on an EC2. This will launch 3 new instances, one to launch the client program, one to launch the watchdog program, and one which will start the first transcoding service process.
+
+Users can then call minimoto_client on the client instance and pass in a particular folder of sample images to be converted into a video. The client will upload these images to an s3 bucket and add the conversion request to an SQS queue, both created by minimoto_setup.
+
+The transcoding instance will have scheduled processes running every minute, which will check the queue and handle the conversion requests.
+
+Users can call minimoto_watchdog on the watchdog instance to scale the number of the service instances. That is, depending on the the length of the request queue, instances can be added or subtracted from the service pool, allowing us to deal with requests more efficiently without extravagant resource use.
+
 
 minimoto_setup
+##############
+minimoto_setup creates the request queue, input and output buckets, security group and the aformentioned instances. As the keyfile, access key and secret key are passed to minimoto_setup, it is responsible to passing this information on to the appropriate places (namely the instances that are subsequently launched).
 
+Instances are created in 2 phases denoted by separate functions: startInstance() and setupInstance(). This separation allows us to call startInstance() on each instance before calling setupInstance(). This is useful as our instances wait for initialisation to complete such that we can safely ssh into them. If the phases were not separated, we would have to wait sequentially for each instance to initialise which is time-consuming. Thus, startInstance() is responsible to installing all the fundamental libraries (eg. python3, boto3 etc) and starting the instance, while setupInstance() waits for intialisation and then uses ssh to load the necessary files onto the instance (program, credentials, config). For the service instance, setupInstance() also saves the AMI for later use.
 
 
 minimoto_cleanup
+################
+Throughout the creation of resources, names and tags were carefully chosen to allow for ease of cleanup. For example, instances are tagged with the tag:application = minimoto. This allows the cleanup program to simply filter for these instances and loop over them to terminate. The same principle applies for images. Since we know the number and name of buckets and queues from the outset (we are completely in control of this), cleaning them up is trivial.
+
 
 minimoto_client
+###############
+minimoto_client simply takes in a folder of images and uploads it to the input bucket. Then, it sends a conversion request to the request queue. The request is denoted by a randomised 5-character string. This uniquely associates the uploaded image folder, the request, and the subsequently created video file (the random string used as the folder and video file name).
+
 
 minimoto_transcoding
+####################
+minimoto_transcoding is a program that is scheduled every minute by cron. When run, it pulls a single message from the queue and downloads all associated images. Upon receiving the message, the message is "hidden" from other process/instances that may also want to receive it. This is done to minimise the amount of duplicate work (eg. if two instances both receive the same message and produce the same video). We hide rather than delete the message to ensure that no requests are left unsatisfied in the case where the instance dealing with said request is terminated (during scale in). Once the video has been successfully uploaded to the ouput bucket, we delete the message.
+
 
 minimoto_watchdog
+#################
+The scaling algorithm for the watchdog is based on Amazon's SQS scaling recommendations. The central idea is keeping track of "backlog per instance" and "acceptable backlog per instance" for the system. That is, for every instance in the service pool, how many requests are acceptable to be queued.
+
+To produce a low wait-time for users, I chose an acceptable backlog per instance of 2. Thus, when queueLength/numInstances > 2, we scale out and when < 2, we scale in. As a concrete example, if we have 60 requests, and 5 service instances, queueLength/numInstances = 30 which is greater than 2. Thus, we scale out, creating new instances until we hit 15. This ratio of 2 can be adjusted to suit different sized average jobs (eg. if we know the typical number of images in a request).
+
+There is a hardcoded minimum of 1 service instance and maximum of 7. The reason for the maximum of 7 is outlined in Potential Shortcomings.
+
 
 Testing
+#######
+The system was tested with image folders of different sizes, both individual image sizes and well as number of images. Up to 100 images were tested.
+
+Parallel jobs were also tested. Up to 80 requests were made simultaneously to see how the system was able to scale. Calling minimoto_watchdog produced the desired effect, with the system scaling out when there were a large number of requests, speeding up the processing greatly. When the queue length diminished, another call to minimoto_watchdog would scale in the system, saving resources.
+
 
 Potential shortcomings
+######################
+I wasn't able to figure out the reason but on my AWS Educate account there appeared to be a limit of 9 t2.large instances at once. With one watchdog and one client instance, this left 7 service instances. Once this number was exceeded, other instances were (seemingly arbitrarily) terminated. Such termination would often be dtrimental to progress as it would terminate instances mid-conversion, but without any increase (or even decrease) in service pool size, merely replacing an existing instance with a new one. As such, a hardcoded limit of 7 was put in place for scaling out. On an AWS account without such issues, this limit can be easily removed to see the full effect of scaling to greater than 7 service instances.

@@ -107,6 +107,8 @@ def scaleForce(numFleet, scaleTo, instances):
     if numFleet < scaleTo:
         ec2 = boto3.resource('ec2') 
         while numFleet < scaleTo:
+            if numFleet >= 7:
+                break
             try:
                 clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
                 tags = clientInstances[0].create_tags(
