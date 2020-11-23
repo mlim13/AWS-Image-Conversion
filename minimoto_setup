@@ -229,7 +229,7 @@ if __name__ == "__main__":
 
     print("SQS_REQUEST_QUEUE={}".format(queue.url))
     print("S3_BUCKET_INPUT=s3://input-bucket-z5112968")
-    print("S3_BUCKET_INPUT=s3://output-bucket-z5112968")
+    print("S3_BUCKET_OUTPUT=s3://output-bucket-z5112968")
     print("CLIENT_USER=ubuntu")
     print("CLIENT_ADDR={}".format(clientInstance.public_dns_name))
     print("WATCHDOG_USER=ubuntu")
