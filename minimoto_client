@@ -53,4 +53,4 @@ if __name__ == "__main__":
     if wait: # if wait == true, wait here for the video to be generated
         s3Client = s3.meta.client
         waiter = s3Client.get_waiter('object_exists')
-        waiter.wait(Bucket='outputBucket', Key=randId + ".mp4")
+        waiter.wait(Bucket=outputBucketStr, Key=randId + ".mp4")
