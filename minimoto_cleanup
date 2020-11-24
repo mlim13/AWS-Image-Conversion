@@ -7,13 +7,11 @@ import os
 def cleanSnapshots():
     ec2 = boto3.resource('ec2') 
     try:
-        for snapshot in ec2.snapshots.all():
-            instances = ec2.instances.filter(Filters=[{'Name': 'tag:application', 'Values': ['minimoto']}])
-            for instance in instances:
-                volumes = instance.volumes.all()
-                for volume in volumes:
-                    if volume.id == snapshot.volume_id:
-                        snapshot.delete()
+        instances = ec2.instances.filter(Filters=[{'Name': 'tag:application', 'Values': ['minimoto']}])
+        for instance in instances:
+            for snapshot in ec2.snapshots.all():
+                if instance.id in snapshot.description:
+                    snapshot.delete()
     except:
         pass
 
