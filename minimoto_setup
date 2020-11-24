@@ -176,11 +176,7 @@ if __name__ == "__main__":
     createConfigFile(region)
 
     # Set up SQS (queue)
-    sqs = boto3.resource('sqs',
-        aws_access_key_id = accessKey,
-        aws_secret_access_key = secretKey,
-        aws_session_token = token,
-        region_name = region)
+    sqs = boto3.resource('sqs')
     try:
         queue = sqs.create_queue(
             QueueName = queue,
@@ -189,14 +185,11 @@ if __name__ == "__main__":
             # }
         )
     except:
-        print("Queue already created\n")
+        print("Queue creation failed")
+        exit()
 
     # Set up input and output bucket
-    s3 = boto3.resource('s3',
-        aws_access_key_id = accessKey,
-        aws_secret_access_key = secretKey,
-        aws_session_token = token,
-        region_name = region)
+    s3 = boto3.resource('s3')
     try:
         inputBucket = s3.create_bucket(
             Bucket='input-bucket-z5112968'
@@ -205,14 +198,11 @@ if __name__ == "__main__":
             Bucket='output-bucket-z5112968'
         )
     except:
-        print("Buckets already created\n")
+        print("Bucket creation failed")
+        exit()
 
     # Create ec2 object - just a programmatic object used to create instances etc
-    ec2 = boto3.resource('ec2', 
-        aws_access_key_id = accessKey,
-        aws_secret_access_key = secretKey,
-        aws_session_token = token,
-        region_name = region)
+    ec2 = boto3.resource('ec2')
 
     # Create security group
     createSecurityGroup(ec2, sgName)
