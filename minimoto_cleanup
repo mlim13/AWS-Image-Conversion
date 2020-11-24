@@ -67,10 +67,10 @@ def cleanGroups():
         pass
 
 if __name__ == "__main__":
-    cleanSnapshots()
     cleanInstances()
     cleanImages()
     cleanQueues()
     cleanBuckets()
+    cleanSnapshots()
     cleanGroups()
     print("All clean.")
