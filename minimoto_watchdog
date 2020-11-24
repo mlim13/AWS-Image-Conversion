@@ -29,7 +29,7 @@ def scaleOut(queueLength, numFleet):
         if numFleet >= 7:
             break
         try:
-            clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
+            clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"], BlockDeviceMappings=[{'Ebs': {'DeleteOnTermination': True}}])
             clientInstances[0].monitor()
             tags = clientInstances[0].create_tags(
                 Tags=[
@@ -111,7 +111,7 @@ def scaleForce(numFleet, scaleTo, instances):
             if numFleet >= 7:
                 break
             try:
-                clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
+                clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"], BlockDeviceMappings=[{'Ebs': {'DeleteOnTermination': True}}])
                 clientInstances[0].monitor()
                 tags = clientInstances[0].create_tags(
                     Tags=[

@@ -46,9 +46,19 @@ def cleanBuckets():
     except:
         pass
 
+def cleanGroups():
+    ec2 = boto3.resource('ec2')
+    try:
+        sgs = ec2.security_groups.filter(Filters=[{'Name': 'group-name','Values': ['sgMinimoto']}]
+        for sg in sgs:
+            sg.delete()
+    except:
+        pass
+
 if __name__ == "__main__":
     cleanInstances()
     cleanImages()
     cleanQueues()
     cleanBuckets()
+    cleanGroups()
     print("All clean.")
