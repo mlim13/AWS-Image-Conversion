@@ -62,7 +62,7 @@ def cleanBuckets():
 def cleanGroups():
     ec2 = boto3.resource('ec2')
     try:
-        sgs = ec2.security_groups.filter(Filters=[{'Name': 'group-name','Values': ['sgMinimoto']}]
+        sgs = ec2.security_groups.filter(Filters=[{'Name': 'group-name','Values': ['sgMinimoto']}])
         for sg in sgs:
             sg.delete()
     except:
