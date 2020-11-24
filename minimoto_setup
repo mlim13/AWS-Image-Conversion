@@ -61,7 +61,7 @@ def startInstance(ec2, image, instanceType, keyName, sgName, isService):
         pip3 install boto3
         '''
 
-    clientInstances = ec2.create_instances(ImageId=image, MinCount=1, MaxCount=1, InstanceType=instanceType, KeyName=keyName, SecurityGroups=[sgName], UserData=userData, BlockDeviceMappings=[{'Ebs': {'DeleteOnTermination': True}}])
+    clientInstances = ec2.create_instances(ImageId=image, MinCount=1, MaxCount=1, InstanceType=instanceType, KeyName=keyName, SecurityGroups=[sgName], UserData=userData)
     clientInstance = clientInstances[0]
 
     return clientInstance
@@ -125,7 +125,7 @@ def setupInstance(ec2, clientInstance, program, isService):
                          stdout=subprocess.PIPE, 
                          universal_newlines=True)
         try:
-            imageId = ec2Client.create_image(InstanceId=clientInstance.id, Name="minimoto_transcoding_z5112968_image", BlockDeviceMappings=[{'Ebs': {'DeleteOnTermination': True}}])
+            imageId = ec2Client.create_image(InstanceId=clientInstance.id, Name="minimoto_transcoding_z5112968_image")
             image = ec2.Image(imageId['ImageId'])
             imageTag = image.create_tags(
                 Tags=[
