@@ -177,29 +177,44 @@ if __name__ == "__main__":
 
     # Set up SQS (queue)
     sqs = boto3.resource('sqs')
-    try:
-        queue = sqs.create_queue(
-            QueueName = queue,
-            # Attributes={
-            #     'FifoQueue': "true" # If we want a fifo queue. Dont think I need this for now
-            # }
-        )
-    except:
-        print("Queue creation failed")
-        exit()
+    count = 5
+    loop = True
+    while loop:
+        if count <= 0:
+            break
+        loop = False
+        try:
+            queue = sqs.create_queue(
+                QueueName = queue,
+                # Attributes={
+                #     'FifoQueue': "true" # If we want a fifo queue. Dont think I need this for now
+                # }
+            )
+        except:
+            print("Queue creation failed")
+            loop = True
+            count -= 1
 
     # Set up input and output bucket
     s3 = boto3.resource('s3')
-    try:
-        inputBucket = s3.create_bucket(
-            Bucket='input-bucket-z5112968'
-        )
-        outputBucket = s3.create_bucket(
-            Bucket='output-bucket-z5112968'
-        )
-    except:
-        print("Bucket creation failed")
-        exit()
+    # Loop until buckets successfully created
+    count = 5
+    loop = True
+    while loop:
+        if count <= 0:
+            break
+        loop = False
+        try:
+            inputBucket = s3.create_bucket(
+                Bucket='input-bucket-z5112968'
+            )
+            outputBucket = s3.create_bucket(
+                Bucket='output-bucket-z5112968'
+            )
+        except:
+            print("Bucket creation failed")
+            loop = True
+            count -= 1
 
     # Create ec2 object - just a programmatic object used to create instances etc
     ec2 = boto3.resource('ec2')

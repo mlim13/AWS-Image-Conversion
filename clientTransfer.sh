@@ -10,5 +10,5 @@ sudo scp -i mykey.pem -o StrictHostKeyChecking=no ./img2video.sh ubuntu@3.236.24
 sudo scp -i mykey.pem -o StrictHostKeyChecking=no ./mykey.pem ubuntu@3.236.240.56:~/mykey.pem
 
 # # Client
-# sudo scp -r -i mykey.pem -o StrictHostKeyChecking=no ./sample_images2 ubuntu@54.196.200.156:~/sample_images2
-# sudo scp -i mykey.pem -o StrictHostKeyChecking=no ./parallelJobs.sh ubuntu@54.196.200.156:~/parallelJobs.sh
+# sudo scp -r -i mykey.pem -o StrictHostKeyChecking=no ./sample_images2 ubuntu@34.239.176.2:~/sample_images2
+# sudo scp -i mykey.pem -o StrictHostKeyChecking=no ./parallelJobs.sh ubuntu@34.239.176.2:~/parallelJobs.sh
