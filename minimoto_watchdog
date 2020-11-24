@@ -28,6 +28,7 @@ def scaleOut(queueLength, numFleet):
     while queueLength/numFleet > 4:
         if numFleet >= 7:
             break
+        numFleet += 1
         try:
             clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
             clientInstances[0].monitor()
@@ -43,9 +44,8 @@ def scaleOut(queueLength, numFleet):
                     },
                 ]
             )
-            numFleet += 1
         except:
-            break # if we cannot add any more instances
+            numFleet -= 1
     return numFleet
 
 def scaleIn(queueLength, numFleet, instances):
@@ -110,6 +110,7 @@ def scaleForce(numFleet, scaleTo, instances):
         while numFleet < scaleTo:
             if numFleet >= 7:
                 break
+            numFleet += 1
             try:
                 clientInstances = ec2.create_instances(ImageId=transcodingImage.id, MinCount=1, MaxCount=1, InstanceType="t2.large", SecurityGroups=["sgMinimoto"])
                 clientInstances[0].monitor()
@@ -125,9 +126,8 @@ def scaleForce(numFleet, scaleTo, instances):
                         },
                     ]
                 )
-                numFleet += 1
             except:
-                break # if we cannot add any more instances
+                numFleet -= 1
         return numFleet
     elif numFleet > scaleTo:
         for instance in instances:
