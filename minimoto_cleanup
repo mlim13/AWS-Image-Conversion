@@ -8,7 +8,7 @@ def cleanSnapshots():
     ec2 = boto3.resource('ec2') 
     try:
         for snapshot in ec2.snapshots.all():
-            instances = ec2.instances.filter(Filters=[{'Name': 'tag:application', 'Values': ['minimoto']}, {'Name': 'instance-state-name', 'Values': ['running', 'pending', 'stopped']}])
+            instances = ec2.instances.filter(Filters=[{'Name': 'tag:application', 'Values': ['minimoto']}])
             for instance in instances:
                 volumes = instance.volumes.all()
                 for volume in volumes:
